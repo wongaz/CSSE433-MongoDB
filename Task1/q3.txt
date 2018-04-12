@@ -1,0 +1,7 @@
+db.Task1.aggregate(
+  [
+    {$unwind:'$Advertisement'},
+    {$sort:
+      {'Advertisement.Price':1}}
+  ]
+).pretty()

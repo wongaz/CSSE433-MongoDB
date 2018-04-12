@@ -1,0 +1,3 @@
+db.Task1.find({Username:'mika_h'}).pretty()
+
+db.Task1.find({Username:'steve'}).pretty()
