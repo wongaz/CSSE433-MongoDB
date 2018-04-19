@@ -1,6 +1,6 @@
 import MongoConnection as mc
 
-prompt = "(a)dd, (d)elete, (e)dit, (s)earch, (l)ookup, (c)heckout, (r)eturn, (h)elp"
+prompt = "(a)dd, (d)elete, (e)dit, (s)earch, (l)ookup, (c)heckout, (r)eturn, (h)elp, (q)uit"
 
 
 def pretty_print_users(user_info):
@@ -43,7 +43,7 @@ def add_new():
 
         ISBN = str(input(">>>>(ISBN):")).strip()
         try:
-            page_count = str(input(">>>>(page count):")).strip()
+            page_count = int(input(">>>>(page count):"))
 
         except ValueError:
             print("ERROR")
@@ -52,7 +52,7 @@ def add_new():
         if len(title) != 0 and \
                 len(author) != 0 and \
                 len(ISBN) != 0 and \
-                len(page_count) != 0 and \
+                page_count > 0 and \
                 mc.add_book(title, ISBN, page_count, author):
 
             print("OK")
@@ -154,12 +154,32 @@ def delete_from_mongo():
         else:
             print("ERROR")
 
-    print("options to (1)book or (2)borrower:")
+    def delete_attribute():
+        ISBN = str(input(">>>>(ISBN):")).strip()
+        print("Attribute to delete (1) author, (2) title, 3(page)")
+        select = str(input(">>>>(select):")).strip()
+        if select == '1':
+            if mc.delete_attribute('Author', ISBN):
+                print('OK')
+        elif select == '2':
+            if mc.delete_attribute('Title', ISBN):
+                print('OK')
+        elif select == '3':
+            if mc.delete_attribute('Page', ISBN):
+                print('OK')
+        else:
+            print("Error")
+
+    print("options to (1)book, (2)borrower, (3)attribute:")
     select = str(input(">>>>(select):")).strip()
     if select == '1':
         delete_book()
     elif select == '2':
         delete_borrower()
+    elif select == '3':
+        delete_attribute()
+    else:
+        print("ERROR")
 
 
 def searching():
@@ -167,8 +187,7 @@ def searching():
         print("ISBN to search for:")
         ISBN = str(input(">>>>(ISBN):")).strip()
         res = mc.retrieve_book_by_ISBN(ISBN)
-        print(res)
-        if res != 0:
+        if res != 0 and res is not None:
             pretty_print_books(res)
         else:
             print("ERROR")
@@ -177,7 +196,7 @@ def searching():
         print("title to search for:")
         title = str(input(">>>>(title):")).strip()
         res = mc.retrieve_book_by_title(title)
-        if res.count() != 0:
+        if res.count() != 0 and res is not None:
             for bk in res:
                 pretty_print_books(bk)
         else:
@@ -187,7 +206,7 @@ def searching():
         print("author to search for:")
         author = str(input(">>>>(author):")).strip()
         res = mc.retrieve_book_by_author(author)
-        if res.count() != 0:
+        if res.count() != 0 and res is not None:
             for bk in res:
                 pretty_print_books(bk)
         else:
@@ -197,7 +216,7 @@ def searching():
         print("name to search for:")
         name = str(input(">>>>(name):")).strip()
         res = mc.retrieve_user_by_name(name)
-        if res != 0:
+        if res != 0 and res is not None:
             for keys in res:
                 pretty_print_users(keys)
         else:
@@ -207,7 +226,7 @@ def searching():
         print("name to search for:")
         name = str(input(">>>>(username):")).strip()
         res = mc.retrieve_user_by_username(name)
-        if res != 0:
+        if res != 0 and res is not None:
             pretty_print_users(res)
         else:
             print("ERROR")
@@ -245,10 +264,6 @@ def display_books():
         for k in mc.retrieve_books_sorted_by_pages():
             pretty_print_books(k)
 
-    def display_users_by_checkouts():
-        for k in mc.retrieve_users_by_checkouts():
-            pretty_print_users(k)
-
     def display_users_by_active_checkouts():
         for k in mc.retrieve_users_by_active_checkout():
             pretty_print_users(k)
@@ -263,7 +278,7 @@ def display_books():
 
     print("Display books by:"
           "(t)itle, (a)uthors, (I)SBN, (p)age#, "
-          "(c)heckouts by user, (l)ive checkouts,(1)books, and (2)users")
+          "(l)ive checkouts,(1)books, and (2)users")
 
     inpt = str(input(">>>>(selection):")).strip().lower()
     if inpt.startswith("t"):
@@ -274,8 +289,6 @@ def display_books():
         display_books_by_ISBN()
     elif inpt.startswith("p"):
         display_books_by_pages()
-    elif inpt.startswith("c"):
-        display_users_by_checkouts()
     elif inpt.startswith("l"):
         display_users_by_active_checkouts()
     elif inpt.startswith('1'):
@@ -298,7 +311,7 @@ def checkout_book():
 def return_book():
     username = str(input(">>>>(username):")).strip()
     isbn = str(input(">>>>(isbn):")).strip()
-    if mc.return_book(username, isbn):
+    if mc.return_book(isbn,username):
         print("OK")
     else:
         print("ERROR")
@@ -329,6 +342,10 @@ def main():
 
         elif inpt.startswith('r') or inpt == 'returns':
             return_book()
+
+        elif inpt.startswith('e') or inpt.startswith('q'):
+            print("Shutting Down")
+            break
 
         elif inpt.startswith('h'):
             print(prompt)

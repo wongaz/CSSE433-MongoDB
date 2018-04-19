@@ -5,12 +5,13 @@ conn = MongoClient()
 db = conn['Task2']
 user_db = db.user
 book_db = db.book
-user_db.create_index([('Username', pymongo.ASCENDING)],unique=True)
-book_db.create_index([('ISBN', pymongo.ASCENDING)],unique=True)
+user_db.create_index([('Username', pymongo.ASCENDING)], unique=True)
+book_db.create_index([('ISBN', pymongo.ASCENDING)], unique=True)
 
 
 def clear_db(name):
     conn.drop_database(name)
+
 
 ##Adding
 def add_book(Title, ISBN, Page, Author):
@@ -21,18 +22,32 @@ def add_book(Title, ISBN, Page, Author):
                  'Copies': 1,
                  'CheckedOut': 0,
                  'Borrowers': []}
+
     if check_if_book_exist(ISBN):
         ls = book_db.insert_one(new_entry)
-        return True
-    elif book_db.find({'ISBN': ISBN,
-                       'Title': Title,
-                       'Page': Page,
-                        'Author': Author,}).count() ==1:
-        book_db.update_one({'ISBN': ISBN},
-                           {'$inc': {'Copies': 1}})
-        return True
+        return ls is not None
+
     else:
-        return False
+        bk_data = book_db.find_one({'ISBN': ISBN})
+        if bk_data.get('Title') is not None:
+            if bk_data.get('Title') != Title:
+                return False
+
+        if bk_data.get('Page') is not None:
+            if bk_data.get('Page') != Page:
+                return False
+
+        if bk_data.get('Author') is not None:
+            if bk_data.get('Author') != Author:
+                return False
+
+        book_db.update({'ISBN': ISBN},
+                           {'$set': {
+                                'Title': Title,
+                                'Page': Page,
+                                'Author': Author}})
+        book_db.update({'ISBN': ISBN}, {'$inc': {'Copies': 1}})
+        return True
 
 
 def check_if_book_exist(ISBN):
@@ -66,6 +81,7 @@ def check_if_username_exist(username):
     '''
     return user_db.find({'Username':username}).count() == 0
 
+
 ##Deleting
 def delete_book(ISBN):
     if not check_if_book_exist(ISBN):
@@ -73,7 +89,7 @@ def delete_book(ISBN):
         for users in bk_data.get('Borrowers'):
             return_book(ISBN, users)
         result = book_db.delete_many({'ISBN':ISBN})
-        return result.deleted_count() == 1
+        return result.deleted_count == 1
     return False
 
 
@@ -82,9 +98,17 @@ def delete_username(username):
         user_data = retrieve_user_by_username(username)
         for bk in user_data.get('Checkout'):
             return_book(bk, username)
-        result = user_db.delete_many({'Username':username})
-        return result.deleted_count() == 1
+        result = user_db.delete_many({'Username': username})
+        return result.deleted_count == 1
     return False
+
+
+def delete_attribute(attribute,ISBN):
+    if not check_if_book_exist(ISBN):
+        result = book_db.update_one({'ISBN': ISBN},
+                           {'$unset': {attribute: ''}})
+        return result is not None
+
 
 ##Editing
 def edit_book_title(ISBN,title):
@@ -148,34 +172,30 @@ def retrieve_all_users():
 
 
 def retrieve_books_sorted_by_pages():
-    return book_db.find().sort("Page", pymongo.ASCENDING)
+    return book_db.find({'Page': {'$exists': True}}).sort("Page", pymongo.ASCENDING)
 
 
 def retrieve_books_sorted_by_ISBN():
-    return book_db.find().sort("ISBN", pymongo.ASCENDING)
+    return book_db.find({'ISBN': {'$exists': True}}).sort("ISBN", pymongo.ASCENDING)
 
 
 def retrieve_books_sorted_by_title():
-    return book_db.find().sort("Title", pymongo.ASCENDING)
+    return book_db.find({'Title': {'$exists': True}}).sort("Title")
 
 
 def retrieve_books_sorted_by_authors():
-    pass
+    return book_db.find().sort("Author")
 
 
 def retrieve_users_by_active_checkout():
-    pass
-
-
-def retrieve_users_by_checkouts():
-    pass
+    return user_db.find({'Checkout': {'$gt': []}})
 
 
 ##Checkout and Return
 def checkout_book(ISBN,username):
     if not check_if_book_exist(ISBN) and not check_if_username_exist(username):
         bk_data = retrieve_book_by_ISBN(ISBN)
-        if bk_data.get('CheckedOut')<bk_data.get('Copies'):
+        if username not in bk_data.get('Borrowers') and bk_data.get('CheckedOut')<bk_data.get('Copies'):
             result1 = user_db.update_one({'Username': username},
                                         {'$push': {'Checkout': ISBN}})
 
